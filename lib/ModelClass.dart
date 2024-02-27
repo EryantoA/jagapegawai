@@ -9,10 +9,10 @@ String pegawaiToJson(List<Pegawaikey> data) =>
 class Pegawaikey {
   String? sId;
   String? nama;
-  dynamic provinsi;
-  dynamic kabupaten;
+  String? provinsi;
+  String? kabupaten;
   String? kecamatan;
-  dynamic kelurahan;
+  String? kelurahan;
   String? jalan;
   String? kota;
   String? name;
@@ -45,9 +45,9 @@ class Pegawaikey {
         "id": sId,
         "nama": nama,
         "provinsi": provinsi,
-        "kabupaten": kabupaten?.toJson(),
+        "kabupaten": kabupaten,
         "kecamatan": kecamatan,
-        "kelurahan": kelurahan?.toJson(),
+        "kelurahan": kelurahan,
         "jalan": jalan,
         "kota": kota,
         "name": name,
