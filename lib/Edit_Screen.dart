@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:jagapegawai/HomeScreen.dart';
 import 'package:jagapegawai/Style.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EditScreen extends StatefulWidget {
   final String id;
@@ -24,14 +25,95 @@ class _EditScreenState extends State<EditScreen> {
   var kecamatanController = TextEditingController();
   var kelurahanController = TextEditingController();
   var jalanController = TextEditingController();
-  var kotaController = TextEditingController();
-  var nameController = TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
+
+  var loading = false;
+
+  String baseUrl = "https://emsifa.github.io/api-wilayah-indonesia/api/";
+  String? _valProvince, _valCity, _valKec, _valKel;
+
+  List<dynamic> _dataProvince = [];
+  List<dynamic> _dataCity = [];
+  List<dynamic> _dataKec = [];
+  List<dynamic> _dataKel = [];
+
+  void getProvince() async {
+    final response = await http.get(Uri.parse("${baseUrl}provinces.json"));
+    var listData = jsonDecode(response.body);
+    setState(() {
+      _dataProvince = listData;
+    });
+  }
+
+  void getCity(String idProvince) async {
+    String apiUrl = "${baseUrl}regencies/$idProvince.json";
+    final response = await http.get(Uri.parse(apiUrl));
+
+    if (response.statusCode == 200) {
+      var responseData = jsonDecode(response.body);
+      setState(() {
+        _dataCity = responseData;
+      });
+    }
+  }
+
+  void getKec(String idCity) async {
+    String apiUrl = "${baseUrl}districts/$idCity.json";
+    final response = await http.get(Uri.parse(apiUrl));
+
+    if (response.statusCode == 200) {
+      var responseData = jsonDecode(response.body);
+      setState(() {
+        _dataKec = responseData;
+      });
+    }
+  }
+
+  void getKel(String idKec) async {
+    String apiUrl = "${baseUrl}villages/$idKec.json";
+    final response = await http.get(Uri.parse(apiUrl));
+
+    if (response.statusCode == 200) {
+      var responseData = jsonDecode(response.body);
+      setState(() {
+        _dataKel = responseData;
+      });
+    }
+  }
+
+  String getProvinceNameById(String id) {
+    var province = _dataProvince.firstWhere((element) => element['id'] == id,
+        orElse: () => {});
+
+    return province['name'] ?? '';
+  }
+
+  String getCityNameById(String id) {
+    var city = _dataCity.firstWhere((element) => element['id'] == id,
+        orElse: () => {});
+
+    return city['name'] ?? '';
+  }
+
+  String getKecNameById(String id) {
+    var kec =
+        _dataKec.firstWhere((element) => element['id'] == id, orElse: () => {});
+
+    return kec['name'] ?? '';
+  }
+
+  String getKelNameById(String id) {
+    var kel =
+        _dataKel.firstWhere((element) => element['id'] == id, orElse: () => {});
+
+    return kel['name'] ?? '';
+  }
 
   @override
   void initState() {
     super.initState();
+    getProvince();
     _getData();
   }
 
@@ -45,13 +127,8 @@ class _EditScreenState extends State<EditScreen> {
 
         setState(() {
           namaController.text = data['nama'];
-          provinsiController.text = data['provinsi'];
-          kabupatenController.text = data['kabupaten'];
-          kecamatanController.text = data['kecamatan'];
-          kelurahanController.text = data['kelurahan'];
+
           jalanController.text = data['jalan'];
-          kotaController.text = data['kota'];
-          nameController.text = data['name'];
         });
       }
     } catch (e) {
@@ -59,22 +136,35 @@ class _EditScreenState extends State<EditScreen> {
     }
   }
 
-  Future<void> _onUpdate(context) async {
+  Future<void> _onUpdate(
+    context,
+    String id,
+    String valProvince,
+    String valCity,
+    String valKec,
+    String valKel,
+  ) async {
     try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      valProvince = prefs.getString('provinceName') ?? '';
+      valCity = prefs.getString('cityName') ?? '';
+      valKec = prefs.getString('kecamatanName') ?? '';
+      valKel = prefs.getString('kelurahanName') ?? '';
+
       final response = await http.put(
-        Uri.parse(
-            "https://61601920faa03600179fb8d2.mockapi.io/pegawai/${widget.id}"),
+        Uri.parse("https://61601920faa03600179fb8d2.mockapi.io/pegawai/$id"),
         body: {
           "nama": namaController.text,
-          "provinsi": provinsiController.text,
-          "kabupaten": kabupatenController.text,
-          "kecamatan": kecamatanController.text,
-          "kelurahan": kelurahanController.text,
+          "provinsi": valProvince,
+          "kabupaten": valCity,
+          "kecamatan": valKec,
+          "kelurahan": valKel,
           "jalan": jalanController.text,
-          "kota": kotaController.text,
-          "name": nameController.text,
         },
       );
+
+      print("Update API: ${response.body}");
+
 
       if (response.statusCode == 200) {
         // Show success message
@@ -129,48 +219,79 @@ class _EditScreenState extends State<EditScreen> {
                   decoration: MyDecoration("Nama Pegawai"),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return "Enter provinsi pegawai";
-                    }
-                    return null;
+                const SizedBox(height: 16),
+                const Text("Pilih provinsi pegawai"),
+                DropdownButton(
+                  hint: const Text("Select Province"),
+                  value: _valProvince,
+                  items: _dataProvince.map<DropdownMenuItem<String>>((item) {
+                    return DropdownMenuItem<String>(
+                      value: item['id'],
+                      child: Text(item['name']),
+                    );
+                  }).toList(),
+                  onChanged: (String? value) {
+                    setState(() {
+                      _valProvince = value;
+                      _valCity = null;
+                    });
+                    getCity(value!);
                   },
-                  controller: provinsiController,
-                  decoration: MyDecoration("Provinsi Pegawai"),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return "Enter kabupaten pegawai";
-                    }
-                    return null;
+                const Text("Pilih kota pegawai"),
+                DropdownButton(
+                  hint: const Text("Select City"),
+                  value: _valCity,
+                  items: _dataCity.map<DropdownMenuItem<String>>((item) {
+                    return DropdownMenuItem<String>(
+                      value: item['id'],
+                      child: Text("${item['name']}"),
+                    );
+                  }).toList(),
+                  onChanged: (String? value) {
+                    setState(() {
+                      _valCity = value;
+                      _valKec = null;
+                    });
+                    getKec(value!);
                   },
-                  controller: kabupatenController,
-                  decoration: MyDecoration("Kabupaten Pegawai"),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return "Enter kecamatan pegawai";
-                    }
-                    return null;
+                const Text("Pilih Kecamatan pegawai"),
+                DropdownButton(
+                  hint: const Text("Select Kecamatan"),
+                  value: _valKec,
+                  items: _dataKec.map<DropdownMenuItem<String>>((item) {
+                    return DropdownMenuItem<String>(
+                      value: item['id'],
+                      child: Text("${item['name']}"),
+                    );
+                  }).toList(),
+                  onChanged: (String? value) {
+                    setState(() {
+                      _valKec = value;
+                      _valKel = null;
+                    });
+                    getKel(value!);
                   },
-                  controller: kecamatanController,
-                  decoration: MyDecoration("Kecamatan Pegawai"),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return "Enter Kelurahan Pegawai";
-                    }
-                    return null;
+                const Text("Pilih Kelurahan pegawai"),
+                DropdownButton(
+                  hint: const Text("Select Kelurahan"),
+                  value: _valKel,
+                  items: _dataKel.map<DropdownMenuItem<String>>((item) {
+                    return DropdownMenuItem<String>(
+                      value: item['id'],
+                      child: Text("${item['name']}"),
+                    );
+                  }).toList(),
+                  onChanged: (String? value) {
+                    setState(() {
+                      _valKel = value;
+                    });
                   },
-                  controller: kelurahanController,
-                  decoration: MyDecoration("Kelurahan Pegawai"),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -183,28 +304,6 @@ class _EditScreenState extends State<EditScreen> {
                   controller: jalanController,
                   decoration: MyDecoration("jalan Pegawai"),
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return "Enter kota Pegawai";
-                    }
-                    return null;
-                  },
-                  controller: kotaController,
-                  decoration: MyDecoration("Kota Pegawai"),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  validator: (value) {
-                    if (value!.isEmpty) {
-                      return "Enter name Pegawai";
-                    }
-                    return null;
-                  },
-                  controller: nameController,
-                  decoration: MyDecoration("name Pegawai"),
-                ),
                 const SizedBox(height: 40),
                 SizedBox(
                   height: 50,
@@ -215,7 +314,8 @@ class _EditScreenState extends State<EditScreen> {
                     ),
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
-                        _onUpdate(context);
+                        _onUpdate(context, widget.id, _valProvince!, _valCity!,
+                            _valKec!, _valKel!);
                       }
                     },
                     child: const Text(

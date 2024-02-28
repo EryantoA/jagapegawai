@@ -18,7 +18,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool loading = false;
-  List pegawaiList = [];
+  List<dynamic> pegawaiList = [];
 
   late String provinceName = 'Not Available';
   late String cityName = 'Not Available';
@@ -59,8 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       final response = await get(
           Uri.parse("https://61601920faa03600179fb8d2.mockapi.io/pegawai"));
-      print(response.body);
-      print(response.statusCode);
+      // print(response.body);
+      // print(response.statusCode);
 
       // if response successful
       if (response.statusCode == 200) {
@@ -140,6 +140,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    List<Map<String, dynamic>> combinedLists = List.generate(
+      pegawaiList.length,
+      (index) {
+        Map<String, dynamic> combinedData = {
+          ...pegawaiList[index],
+        };
+        // Merge shared data if available
+        Map<String, dynamic> sharedData = sharedNamesList[index];
+        // print("sharedData: $sharedData[index]");
+        combinedData['provinsi'] =
+            sharedData['provinceName'] ?? combinedData['provinsi'];
+        combinedData['kabupaten'] =
+            sharedData['cityName'] ?? combinedData['kabupaten'];
+        combinedData['kecamatan'] =
+            sharedData['kecamatanName'] ?? combinedData['kecamatan'];
+        combinedData['kelurahan'] =
+            sharedData['kelurahanName'] ?? combinedData['kelurahan'];
+
+        // print("combinedData: $combinedData[index]");
+        return combinedData;
+      },
+    );
+
     return Scaffold(
         appBar: AppBar(
           title: const Text("List Pegawai"),
@@ -158,10 +181,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: GridView.builder(
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2, mainAxisExtent: 250),
-                          itemCount: pegawaiList.length,
+                                  crossAxisCount: 2, mainAxisExtent: 270),
+                          itemCount: combinedLists.length,
                           itemBuilder: (context, index) {
-                            print("sharedNamesList: $sharedNamesList[index]");
+                            final pegawai = combinedLists[index];
+
                             return Padding(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 5, vertical: 5),
@@ -191,22 +215,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                  "Nama Pegawai : ${pegawaiList[index]['nama'] ?? "Unknown"}"),
-                                              const SizedBox(height: 1),
+                                                  "Nama Pegawai: ${pegawai['nama'] ?? 'Not Available'}"),
                                               Text(
-                                                  "Provinsi : ${sharedNamesList.length > index ? sharedNamesList[index]['provinceName'] ?? "Unknown" : "Not Available"}"),
-                                              const SizedBox(height: 1),
+                                                  "Provinsi: ${pegawai['provinsi'] ?? 'Not Available'}"),
                                               Text(
-                                                  "Kabupaten : ${sharedNamesList.length > index ? sharedNamesList[index]['cityName'] ?? "Unknown" : "Not Available"}"),
-                                              const SizedBox(height: 1),
+                                                  "Kabupaten: ${pegawai['kabupaten'] ?? 'Not Available'}"),
                                               Text(
-                                                  "Kecamatan : ${sharedNamesList.length > index ? sharedNamesList[index]['kecamatanName'] ?? "Unknown" : "Not Available"}"),
-                                              const SizedBox(height: 1),
+                                                  "Kecamatan: ${pegawai['kecamatan'] ?? 'Not Available'}"),
                                               Text(
-                                                  "Kelurahan : ${sharedNamesList.length > index ? sharedNamesList[index]['kelurahanName'] ?? "Unknown" : "Not Available"}"),
-                                              const SizedBox(height: 1),
+                                                  "Kelurahan: ${pegawai['kelurahan'] ?? 'Not Available'}"),
                                               Text(
-                                                  "Jalan : ${pegawaiList[index]['jalan'] ?? "Unknown"}"),
+                                                  "Jalan: ${pegawai['jalan'] ?? 'Not Available'}"),
                                             ],
                                           ),
                                         ),
@@ -226,8 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 MaterialPageRoute(
                                                   builder: (context) =>
                                                       EditScreen(
-                                                          id: pegawaiList[index]
-                                                              ["id"]),
+                                                          id: pegawai["id"]),
                                                 ),
                                               );
                                             },
@@ -237,10 +255,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                             onPressed: () {
                                               setState(() {
                                                 loading = true;
-
-                                                myDialogBox(index,
-                                                    pegawaiList[index]["id"]);
-
+                                                myDialogBox(
+                                                    index, pegawai["id"]);
                                                 loading = false;
                                               });
                                             },
@@ -265,7 +281,9 @@ class _HomeScreenState extends State<HomeScreen> {
             final result = await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const AddPegawaiScreen(),
+                builder: (context) => AddPegawaiScreen(
+                  context: context,
+                ),
               ),
             );
 

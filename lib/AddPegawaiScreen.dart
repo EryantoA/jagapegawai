@@ -7,7 +7,10 @@ import 'package:jagapegawai/Style.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AddPegawaiScreen extends StatefulWidget {
-  const AddPegawaiScreen({Key? key}) : super(key: key);
+  final BuildContext context;
+  final String? id;
+  const AddPegawaiScreen({Key? key, this.id, required this.context})
+      : super(key: key);
 
   @override
   State<AddPegawaiScreen> createState() => _AddPegawaiScreenState();
@@ -16,7 +19,7 @@ class AddPegawaiScreen extends StatefulWidget {
 class _AddPegawaiScreenState extends State<AddPegawaiScreen> {
   var namaController = TextEditingController();
   var jalanController = TextEditingController();
-  var _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   var loading = false;
 
   String baseUrl = "https://emsifa.github.io/api-wilayah-indonesia/api/";
@@ -105,6 +108,63 @@ class _AddPegawaiScreenState extends State<AddPegawaiScreen> {
     await prefs.setString('cityName', getCityNameById(_valCity!));
     await prefs.setString('kecamatanName', getKecNameById(_valKec!));
     await prefs.setString('kelurahanName', getKelNameById(_valKel!));
+  }
+
+  Future<void> postFormApi(
+    String id,
+    context,
+    String valProvince,
+    String valCity,
+    String valKec,
+    String valKel,
+  ) async {
+    try {
+      await shareSelectedNames();
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      valProvince = prefs.getString('provinceName') ?? '';
+      valCity = prefs.getString('cityName') ?? '';
+      valKec = prefs.getString('kecamatanName') ?? '';
+      valKel = prefs.getString('kelurahanName') ?? '';
+
+      final uri =
+          Uri.parse("https://61601920faa03600179fb8d2.mockapi.io/pegawai");
+
+      final apiParams = {
+        "id": widget.id == id,
+        "nama": namaController.text.trim(),
+        "provinsi": valProvince,
+        "kabupaten": valCity,
+        "kecamatan": valKec,
+        "kelurahan": valKel,
+        "jalan": jalanController.text.trim(),
+      };
+
+      final response = await http.post(
+        uri,
+        body: jsonEncode(apiParams),
+      );
+
+      print("Post API: ${response.body}");
+
+      if (response.statusCode == 201) {
+        namaController.clear();
+        jalanController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Data Pegawai Berhasil Ditambahkan",
+              style: TextStyle(color: Colors.white, fontSize: 18.0),
+            ),
+            backgroundColor: ColorDarkBlue,
+          ),
+        );
+      } else {
+        print('Failed to add data. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error creating data: $e');
+    }
   }
 
   @override
@@ -237,8 +297,10 @@ class _AddPegawaiScreenState extends State<AddPegawaiScreen> {
                         setState(() {
                           loading = true;
                         });
-                        await shareSelectedNames();
-                        await postFormApi(context);
+                        // await shareSelectedNames();
+                        await postFormApi(widget.id ?? '', context, _valProvince!, _valCity!,
+                            _valKec!, _valKel!);
+
                         setState(() {
                           loading = false;
                         });
@@ -267,44 +329,5 @@ class _AddPegawaiScreenState extends State<AddPegawaiScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> postFormApi(BuildContext context) async {
-    try {
-      final uri =
-          Uri.parse("https://61601920faa03600179fb8d2.mockapi.io/pegawai");
-
-      final apiParams = {
-        "nama": namaController.text.trim(),
-        "provinsi": _valProvince!,
-        "kabupaten": _valCity!,
-        "kecamatan": _valKec!,
-        "kelurahan": _valKel!,
-        "jalan": jalanController.text.trim(),
-      };
-
-      final response = await http.post(
-        uri,
-        body: jsonEncode(apiParams),
-      );
-
-      if (response.statusCode == 201) {
-        namaController.clear();
-        jalanController.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Data Pegawai Berhasil Ditambahkan",
-              style: TextStyle(color: Colors.white, fontSize: 18.0),
-            ),
-            backgroundColor: ColorDarkBlue,
-          ),
-        );
-      } else {
-        print('Failed to add data. Status code: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error creating data: $e');
-    }
   }
 }
